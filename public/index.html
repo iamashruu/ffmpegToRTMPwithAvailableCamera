@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Camera Streaming</title>
+</head>
+
+<body>
+    <select id="cameraList"></select>
+    <button onclick="startStream()">Start Streaming</button>
+
+    <script>
+        async function startStream() {
+            const selectedCamera = document.getElementById('cameraList').value;
+            const url = `/startStream?camera=${selectedCamera}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Failed to start streaming');
+                }
+                console.log('Streaming started');
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Load available cameras
+        document.addEventListener('DOMContentLoaded', async () => {
+            const cameraList = document.getElementById('cameraList');
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                devices.forEach(device => {
+                    if (device.kind === 'videoinput') {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        option.textContent = device.label || `Camera ${cameraList.children.length + 1}`;
+                        cameraList.appendChild(option);
+                    }
+                });
+            } catch (err) {
+                console.error('Error getting media devices:', err);
+            }
+        });
+    </script>
+</body>
+
+</html>
