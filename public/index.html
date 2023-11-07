@@ -1,47 +1,140 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Camera Streaming</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Video Stream</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
-    <select id="cameraList"></select>
-    <button onclick="startStream()">Start Streaming</button>
+    <div class="container">
+        <h1>Select Camera</h1>
+        <form id="cameraForm">
+            <select id="cam__select">
+                <option value="">Camera Name</option>
+            </select>
+            <select id="cam__number">
+                <option value="0">Camera 1</option>
+                <option value="1">Camera 2</option>
+                <option value="2">Camera 3</option>
+            </select>
+            <button id="startStreamBtn" type="submit">Start Streaming</button>
+            
+        </form>
+        <button id="stopStreamBtn" style="display: none;">Stop Streaming</button>
+
+        <video id="video" width="100%" height="auto" controls autoplay></video>
+    </div>
+
+    <script src="https://cdn.bootcss.com/flv.js/1.5.0/flv.min.js"></script>
 
     <script>
-        async function startStream() {
-            const selectedCamera = document.getElementById('cameraList').value;
-            const url = `/startStream?camera=${selectedCamera}`;
+        const ElSelect = document.getElementById("cam__select");
+        const cameraNumber = document.getElementById("cam__number");
 
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Failed to start streaming');
-                }
-                console.log('Streaming started');
-            } catch (error) {
-                console.error('Error:', error);
-            }
+        function init() {
+            navigator.mediaDevices.enumerateDevices()
+                .then((devices) => {
+                    const cams = devices.filter((device) => device.kind == "videoinput");
+                    renderAvailableCameras(cams);
+                })
+                .catch((err) => {
+                    console.error(err);
+                });
         }
 
-        // Load available cameras
-        document.addEventListener('DOMContentLoaded', async () => {
-            const cameraList = document.getElementById('cameraList');
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                devices.forEach(device => {
-                    if (device.kind === 'videoinput') {
-                        const option = document.createElement('option');
-                        option.value = device.deviceId;
-                        option.textContent = device.label || `Camera ${cameraList.children.length + 1}`;
-                        cameraList.appendChild(option);
+        function renderAvailableCameras(cams = []) {
+            let options = "";
+            cams.forEach((n) => {
+                options += `<option value="${n.deviceId}" >${n.label}</option>`;
+            });
+
+            ElSelect.innerHTML = options;
+        }
+
+            const stopStreamButton = document.getElementById('stopStreamBtn');
+            const startStreamButton = document.getElementById('startStreamBtn');
+
+            stopStreamButton.addEventListener('click', () => {
+                stopStream();
+                stopStreamButton.style.display = 'none';
+                startStreamButton.style.display = 'inline-block';
+                document.querySelector('button[type="submit"]').style.display = 'block';
+            });
+
+            function stopStream() {
+                fetch('http://localhost:4000/stopstream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ msg: 'stop_server' })
+                }).then(response => {
+                    if (response.ok) {
+                        console.log('Stream stopped on the server.');
+                    } else {
+                        console.error('Failed to stop the stream on the server.');
                     }
+                }).catch(error => {
+                    console.error('Error:', error);
                 });
-            } catch (err) {
-                console.error('Error getting media devices:', err);
+            }
+
+          
+
+
+        document.getElementById("cameraForm").addEventListener("submit", function (event) {
+            event.preventDefault();
+            stopStreamButton.style.display = 'inline-block';
+            startStreamButton.style.display = 'none';
+
+            const selectedCameraId = ElSelect.value;
+            const selectedCameraNo = cameraNumber.value;
+            console.log(selectedCameraNo)
+            let selectedCameraLabel = ElSelect.options[ElSelect.selectedIndex].text;
+            if (selectedCameraLabel.includes('(')) {
+                selectedCameraLabel = selectedCameraLabel.split('(')[0].trim();
+            }
+
+            const requestData = {
+                cameraId: selectedCameraId,
+                cameraLabel: selectedCameraLabel,
+                cameraNumber: selectedCameraNo,
+            };
+
+
+            fetch("http://localhost:4000/cameralist", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Selected camera sent to the server for streaming.');
+                    
+                } else {
+                    console.error('Failed to send selected camera to the server.');
+                }
+            }).catch(error => {
+                console.error('Error:', error);
+            });
+
+             if (flvjs.isSupported()) {
+                const videoElement = document.getElementById('video');
+                const flvPlayer = flvjs.createPlayer({
+                    type: 'flv',
+                    url: `http://localhost:8000/livecamera/${selectedCameraNo}.flv`
+                });
+                flvPlayer.attachMediaElement(videoElement);
+                flvPlayer.load();
+                flvPlayer.play();
             }
         });
+
+        init();
     </script>
 </body>
 
